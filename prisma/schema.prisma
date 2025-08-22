@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id String @id @default(uuid())
+  clerkUserId String @unique
+  email String @unique
+  name String?
+  imageUrl String?
+  role UserRole @default(UNASSIGN)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // patient section
+  credits Int @default(2)
+
+  // doctor section
+  speciality String?   // (typo fixed: speaciality → speciality)
+  experience Int?
+  credentialUrl String?
+  description String?   // made optional (better for non-doctors)
+  verificationStatus VerificationStatus @default(PENDING)
+
+  // relations
+  doctorAppointments  Appointment[] @relation("DoctorAppointment")
+  patientAppointments Appointment[] @relation("PatientAppointment")
+  availabilities      Availability[]
+  creditTransactions  CreditTransaction[]
+}
+model Availability {
+  id String @id @default(uuid())
+  doctorId String
+  doctor User @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  startTime DateTime
+  endTime DateTime
+  status SlotStatus @default(AVAILABILITY)
+
+  @@index([doctorId, startTime])
+}
+model Appointment {
+  id String @id @default(uuid())
+  patientId String
+  patient   User @relation("PatientAppointment", fields: [patientId], references: [id])
+  doctorId  String
+  doctor    User @relation("DoctorAppointment", fields: [doctorId], references: [id])
+  startTime DateTime
+  endTime DateTime
+  status AppointmentStatus @default(SCHEDULE)
+  notes String?
+  patientDescription String?
+  videoSessionId String?
+  videoSessionToken String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, startTime])
+  @@index([doctorId, startTime])
+}
+model CreditTransaction {
+  id String @id @default(uuid())
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount Int
+  type TransactionType
+  packageId String?
+  createdAt DateTime @default(now())
+}
+enum UserRole {
+  UNASSIGN
+  PATIENT 
+  DOCTOR 
+  ADMIN 
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED 
+}
+
+enum SlotStatus {
+  AVAILABILITY 
+  BOOKED
+  BLOCKED
+}
+
+enum AppointmentStatus {
+  SCHEDULE 
+  COMPLETED
+  CANCELED
+}
+
+enum TransactionType {
+  ADMIN_ADJUSTMENT
+  APPOINTMENT_DEDUCTION 
+  CREDIT_PURCHASE
+}
